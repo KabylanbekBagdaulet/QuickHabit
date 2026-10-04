@@ -30,6 +30,13 @@ The sketches are in the [`design/`](design/) folder. They were committed before 
 | Settings | `TopAppBar` with back button, two `Row`s with `Text` and `Switch` | Same. The Dark theme switch really changes the theme. |
 | Empty state | Separate screen with `TopAppBar`, centered `Column` with `Image`, two `Text` and a button ("No habits yet" / "Add your first one" / "Add") | Shown inside the Home screen under the chips when the filter has no habits ("No habits here" / "Try another filter" / "Show all"). The sketch version is kept as a `@Preview`. |
 
+## Screenshots
+| Screen | Light | Dark |
+|---|---|---|
+| Home | ![Home light](screenshots/l_home.jpeg) | ![Home dark](screenshots/b_home.jpeg) |
+| Habit Detail | ![Detail light](screenshots/l_det.jpeg) | ![Detail dark](screenshots/b_det.jpeg) |
+| Settings | ![Settings light](screenshots/l_set.jpeg) | ![Settings dark](screenshots/b_set.jpeg) |
+| Empty state | ![Empty light](screenshots/l_emp.jpeg) | ![Empty dark](screenshots/b_emp.jpeg) |
 ## Project structure
 
 ```text
