@@ -26,14 +26,31 @@ import com.example.quickhabit.data.filters
 import com.example.quickhabit.data.habits
 import com.example.quickhabit.ui.theme.QuickHabitTheme
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            QuickHabitTheme {
-                HomeScreen(onHabitClick = {}, onSettingsClick = {})
+            var darkTheme by rememberSaveable { mutableStateOf(false) }
+            val systemDark = isSystemInDarkTheme()
+            var initialized by rememberSaveable { mutableStateOf(false) }
+            if (!initialized) {
+                darkTheme = systemDark
+                initialized = true
+            }
+            QuickHabitTheme(darkTheme = darkTheme) {
+                QuickHabitApp(
+                    darkTheme = darkTheme,
+                    onDarkThemeChange = { darkTheme = it }
+                )
             }
         }
     }
@@ -43,9 +60,13 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onHabitClick: (Int) -> Unit, onSettingsClick: () -> Unit) {
-    var selected by remember { mutableStateOf("All") }
-    val habitList = remember { mutableStateListOf<Habit>().apply { addAll(habits) } }
+fun HomeScreen(
+    habitList: List<Habit>,
+    onToggle: (Int, Boolean) -> Unit,
+    onHabitClick: (Int) -> Unit,
+    onSettingsClick: () -> Unit
+) {
+    var selected by rememberSaveable { mutableStateOf("All") }
 
     val filtered = when (selected) {
         "Done" -> habitList.filter { it.doneToday }
@@ -90,10 +111,7 @@ fun HomeScreen(onHabitClick: (Int) -> Unit, onSettingsClick: () -> Unit) {
                         HabitCard(
                             habit = habit,
                             checked = habit.doneToday,
-                            onCheckedChange = { isChecked ->
-                                val index = habitList.indexOfFirst { it.id == habit.id }
-                                habitList[index] = habit.copy(doneToday = isChecked)
-                            },
+                            onCheckedChange = { isChecked -> onToggle(habit.id, isChecked) },
                             onClick = { onHabitClick(habit.id) }
                         )
                     }
@@ -104,9 +122,11 @@ fun HomeScreen(onHabitClick: (Int) -> Unit, onSettingsClick: () -> Unit) {
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HabitDetailScreen(habit: Habit, onBackClick: () -> Unit) {
-    var done by remember { mutableStateOf(habit.doneToday) }
-
+fun HabitDetailScreen(
+    habit: Habit,
+    onToggleDone: (Boolean) -> Unit,
+    onBackClick: () -> Unit
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -159,10 +179,10 @@ fun HabitDetailScreen(habit: Habit, onBackClick: () -> Unit) {
             Text(text = habit.description, style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(24.dp))
             Button(
-                onClick = { done = !done },
+                onClick = { onToggleDone(!habit.doneToday) },
                 modifier = Modifier.heightIn(min = 48.dp)
             ) {
-                Text(if (done) "Done for today" else "Mark as done")
+                Text(if (habit.doneToday) "Done for today" else "Mark as done")
             }
         }
     }
@@ -208,6 +228,56 @@ fun SettingsScreen(
                 title = "Dark theme",
                 checked = darkTheme,
                 onCheckedChange = onDarkThemeChange
+            )
+        }
+    }
+}
+@Composable
+fun QuickHabitApp(darkTheme: Boolean, onDarkThemeChange: (Boolean) -> Unit) {
+    val navController = rememberNavController()
+    val habitList = remember { mutableStateListOf<Habit>().apply { addAll(habits) } }
+
+    fun toggle(id: Int, isDone: Boolean) {
+        val index = habitList.indexOfFirst { it.id == id }
+        if (index >= 0) habitList[index] = habitList[index].copy(doneToday = isDone)
+    }
+
+    NavHost(navController = navController, startDestination = "home") {
+        composable("home") {
+            HomeScreen(
+                habitList = habitList,
+                onToggle = { id, isDone -> toggle(id, isDone) },
+                onHabitClick = { id -> navController.navigate("detail/$id") },
+                onSettingsClick = { navController.navigate("settings") }
+            )
+        }
+        composable(
+            route = "detail/{habitId}",
+            arguments = listOf(navArgument("habitId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val habitId = backStackEntry.arguments?.getInt("habitId")
+            val habit = habitList.find { it.id == habitId }
+            if (habit != null) {
+                HabitDetailScreen(
+                    habit = habit,
+                    onToggleDone = { toggle(habit.id, it) },
+                    onBackClick = { navController.popBackStack() }
+                )
+            } else {
+                EmptyState(
+                    title = "Habit not found",
+                    subtitle = "It may have been removed",
+                    buttonText = "Back",
+                    onButtonClick = { navController.popBackStack() },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+        composable("settings") {
+            SettingsScreen(
+                darkTheme = darkTheme,
+                onDarkThemeChange = onDarkThemeChange,
+                onBackClick = { navController.popBackStack() }
             )
         }
     }
@@ -339,6 +409,8 @@ fun SettingRow(
 
 // ---- Previews ----
 
+// ---- Previews ----
+
 @Preview(showBackground = true)
 @Composable
 fun HabitCardPreview() {
@@ -390,7 +462,12 @@ fun EmptyStatePreview() {
 @Composable
 fun HomeScreenPreview() {
     QuickHabitTheme {
-        HomeScreen(onHabitClick = {}, onSettingsClick = {})
+        HomeScreen(
+            habitList = habits,
+            onToggle = { _, _ -> },
+            onHabitClick = {},
+            onSettingsClick = {}
+        )
     }
 }
 
@@ -402,14 +479,20 @@ fun HomeScreenPreview() {
 @Composable
 fun HomeScreenDarkPreview() {
     QuickHabitTheme {
-        HomeScreen(onHabitClick = {}, onSettingsClick = {})
+        HomeScreen(
+            habitList = habits,
+            onToggle = { _, _ -> },
+            onHabitClick = {},
+            onSettingsClick = {}
+        )
     }
 }
+
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun HabitDetailPreview() {
     QuickHabitTheme {
-        HabitDetailScreen(habit = habits[0], onBackClick = {})
+        HabitDetailScreen(habit = habits[0], onToggleDone = {}, onBackClick = {})
     }
 }
 
@@ -421,7 +504,7 @@ fun HabitDetailPreview() {
 @Composable
 fun HabitDetailDarkPreview() {
     QuickHabitTheme {
-        HabitDetailScreen(habit = habits[0], onBackClick = {})
+        HabitDetailScreen(habit = habits[0], onToggleDone = {}, onBackClick = {})
     }
 }
 
