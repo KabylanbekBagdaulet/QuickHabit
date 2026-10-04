@@ -25,6 +25,7 @@ import com.example.quickhabit.data.Habit
 import com.example.quickhabit.data.filters
 import com.example.quickhabit.data.habits
 import com.example.quickhabit.ui.theme.QuickHabitTheme
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,6 +99,116 @@ fun HomeScreen(onHabitClick: (Int) -> Unit, onSettingsClick: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HabitDetailScreen(habit: Habit, onBackClick: () -> Unit) {
+    var done by remember { mutableStateOf(habit.doneToday) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = habit.name,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(24.dp)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_empty_habits),
+                contentDescription = "Habit icon",
+                modifier = Modifier.size(96.dp),
+                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = habit.name, style = MaterialTheme.typography.headlineMedium)
+            Row {
+                Text(
+                    text = "Streak: ${habit.streak} days",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = "•", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Reminder ${habit.reminderTime}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = habit.description, style = MaterialTheme.typography.bodyLarge)
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = { done = !done },
+                modifier = Modifier.heightIn(min = 48.dp)
+            ) {
+                Text(if (done) "Done for today" else "Mark as done")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    darkTheme: Boolean,
+    onDarkThemeChange: (Boolean) -> Unit,
+    onBackClick: () -> Unit
+) {
+    var reminders by remember { mutableStateOf(true) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings") },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SettingRow(
+                title = "Daily reminders",
+                checked = reminders,
+                onCheckedChange = { reminders = it }
+            )
+            SettingRow(
+                title = "Dark theme",
+                checked = darkTheme,
+                onCheckedChange = onDarkThemeChange
+            )
         }
     }
 }
@@ -203,6 +314,28 @@ fun EmptyState(
         }
     }
 }
+@Composable
+fun SettingRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
 
 // ---- Previews ----
 
@@ -270,5 +403,52 @@ fun HomeScreenPreview() {
 fun HomeScreenDarkPreview() {
     QuickHabitTheme {
         HomeScreen(onHabitClick = {}, onSettingsClick = {})
+    }
+}
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun HabitDetailPreview() {
+    QuickHabitTheme {
+        HabitDetailScreen(habit = habits[0], onBackClick = {})
+    }
+}
+
+@Preview(
+    showBackground = true,
+    showSystemUi = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Composable
+fun HabitDetailDarkPreview() {
+    QuickHabitTheme {
+        HabitDetailScreen(habit = habits[0], onBackClick = {})
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun SettingsPreview() {
+    QuickHabitTheme {
+        SettingsScreen(darkTheme = false, onDarkThemeChange = {}, onBackClick = {})
+    }
+}
+
+@Preview(
+    showBackground = true,
+    showSystemUi = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Composable
+fun SettingsDarkPreview() {
+    QuickHabitTheme {
+        SettingsScreen(darkTheme = true, onDarkThemeChange = {}, onBackClick = {})
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SettingRowPreview() {
+    QuickHabitTheme {
+        SettingRow(title = "Daily reminders", checked = true, onCheckedChange = {})
     }
 }
