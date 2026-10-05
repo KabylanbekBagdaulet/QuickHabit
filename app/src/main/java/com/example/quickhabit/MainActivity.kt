@@ -55,6 +55,57 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+// ---- Navigation ----
+@Composable
+fun QuickHabitApp(darkTheme: Boolean, onDarkThemeChange: (Boolean) -> Unit) {
+    val navController = rememberNavController()
+    val habitList = remember { mutableStateListOf<Habit>().apply { addAll(habits) } }
+
+    fun toggle(id: Int, isDone: Boolean) {
+        val index = habitList.indexOfFirst { it.id == id }
+        if (index >= 0) habitList[index] = habitList[index].copy(doneToday = isDone)
+    }
+
+    NavHost(navController = navController, startDestination = "home") {
+        composable("home") {
+            HomeScreen(
+                habitList = habitList,
+                onToggle = { id, isDone -> toggle(id, isDone) },
+                onHabitClick = { id -> navController.navigate("detail/$id") },
+                onSettingsClick = { navController.navigate("settings") }
+            )
+        }
+        composable(
+            route = "detail/{habitId}",
+            arguments = listOf(navArgument("habitId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val habitId = backStackEntry.arguments?.getInt("habitId")
+            val habit = habitList.find { it.id == habitId }
+            if (habit != null) {
+                HabitDetailScreen(
+                    habit = habit,
+                    onToggleDone = { toggle(habit.id, it) },
+                    onBackClick = { navController.popBackStack() }
+                )
+            } else {
+                EmptyState(
+                    title = "Habit not found",
+                    subtitle = "It may have been removed",
+                    buttonText = "Back",
+                    onButtonClick = { navController.popBackStack() },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+        composable("settings") {
+            SettingsScreen(
+                darkTheme = darkTheme,
+                onDarkThemeChange = onDarkThemeChange,
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+    }
+}
 
 // ---- Screens ----
 
@@ -232,56 +283,7 @@ fun SettingsScreen(
         }
     }
 }
-@Composable
-fun QuickHabitApp(darkTheme: Boolean, onDarkThemeChange: (Boolean) -> Unit) {
-    val navController = rememberNavController()
-    val habitList = remember { mutableStateListOf<Habit>().apply { addAll(habits) } }
 
-    fun toggle(id: Int, isDone: Boolean) {
-        val index = habitList.indexOfFirst { it.id == id }
-        if (index >= 0) habitList[index] = habitList[index].copy(doneToday = isDone)
-    }
-
-    NavHost(navController = navController, startDestination = "home") {
-        composable("home") {
-            HomeScreen(
-                habitList = habitList,
-                onToggle = { id, isDone -> toggle(id, isDone) },
-                onHabitClick = { id -> navController.navigate("detail/$id") },
-                onSettingsClick = { navController.navigate("settings") }
-            )
-        }
-        composable(
-            route = "detail/{habitId}",
-            arguments = listOf(navArgument("habitId") { type = NavType.IntType })
-        ) { backStackEntry ->
-            val habitId = backStackEntry.arguments?.getInt("habitId")
-            val habit = habitList.find { it.id == habitId }
-            if (habit != null) {
-                HabitDetailScreen(
-                    habit = habit,
-                    onToggleDone = { toggle(habit.id, it) },
-                    onBackClick = { navController.popBackStack() }
-                )
-            } else {
-                EmptyState(
-                    title = "Habit not found",
-                    subtitle = "It may have been removed",
-                    buttonText = "Back",
-                    onButtonClick = { navController.popBackStack() },
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-        }
-        composable("settings") {
-            SettingsScreen(
-                darkTheme = darkTheme,
-                onDarkThemeChange = onDarkThemeChange,
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-    }
-}
 
 // ---- Components ----
 
