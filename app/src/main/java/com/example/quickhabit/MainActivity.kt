@@ -5,50 +5,54 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.quickhabit.data.Habit
-import com.example.quickhabit.data.filters
-import com.example.quickhabit.data.habits
-import com.example.quickhabit.ui.theme.QuickHabitTheme
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.unit.Dp
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.border
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.ui.text.font.FontWeight
+import com.example.quickhabit.data.Habit
+import com.example.quickhabit.data.filters
+import com.example.quickhabit.data.habits
 import com.example.quickhabit.ui.home.HomeUiState
+import com.example.quickhabit.ui.theme.QuickHabitTheme
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.quickhabit.ui.home.HomeViewModel
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -126,18 +130,14 @@ fun QuickHabitApp(darkTheme: Boolean, onDarkThemeChange: (Boolean) -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    habitList: List<Habit>,
+    uiState: HomeUiState,
+    onFilterSelected: (String) -> Unit,
     onToggle: (Int, Boolean) -> Unit,
     onHabitClick: (Int) -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onRetry: () -> Unit
 ) {
-    var selected by rememberSaveable { mutableStateOf("All") }
 
-    val filtered = when (selected) {
-        "Done" -> habitList.filter { it.doneToday }
-        "Not done" -> habitList.filter { !it.doneToday }
-        else -> habitList.toList()
-    }
 
     Scaffold(
         topBar = {
@@ -164,37 +164,49 @@ fun HomeScreen(
             )
         }
     ) { innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding)) {
-            FilterChipRow(
-                filters = filters,
-                selected = selected,
-                habitList = habitList,
-                onSelect = { selected = it }
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            if (filtered.isEmpty()) {
-                EmptyState(
-                    title = "No habits here",
-                    subtitle = "Try another filter",
-                    buttonText = "Show all",
-                    onButtonClick = { selected = "All" },
-                    modifier = Modifier.weight(1f)
+        Column(modifier = Modifier.padding(innerPadding)){
+            when {
+                uiState.isLoading -> LoadingState(modifier = Modifier.fillMaxSize())
+                uiState.error != null -> ErrorState(
+                    message = uiState.error,
+                    onRetry = onRetry,
+                    modifier = Modifier.fillMaxSize()
                 )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(filtered, key = { it.id }) { habit ->
-                        HabitCard(
-                            habit = habit,
-                            checked = habit.doneToday,
-                            onCheckedChange = { isChecked -> onToggle(habit.id, isChecked) },
-                            onClick = { onHabitClick(habit.id) }
+                else -> {
+                    FilterChipRow(
+                        filters = filters,
+                        selected = uiState.selectedFilter,
+                        doneCount = uiState.doneCount,
+                        totalCount = uiState.totalCount,
+                        onSelect = onFilterSelected
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if(uiState.habits.isEmpty()) {
+                        EmptyState(
+                            title = "No habits here",
+                            subtitle = "Try another filter",
+                            buttonText = "Show all",
+                            onButtonClick = { onFilterSelected("All") },
+                            modifier = Modifier.weight(1f)
                         )
+                    }else{
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            items(uiState.habits, key = { it.id })  {
+                                HabitCard(
+                                    habit = habit,
+                                    checked = habit.doneToday,
+                                    onCheckedChange = { isChecked -> onToggle(habit.id, isChecked) },
+                                    onClick = { onHabitClick(habit.id) }
+                                )
+                            }
+                        }
                     }
                 }
+
             }
         }
     }
@@ -420,7 +432,8 @@ fun StreakPill(days: Int, modifier: Modifier = Modifier) {
 fun FilterChipRow(
     filters: List<String>,
     selected: String,
-    habitList: List<Habit>,
+    doneCount: Int,
+    totalCount: Int,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -431,10 +444,10 @@ fun FilterChipRow(
     ) {
         items(filters) { filter ->
             val isSelected = filter == selected
-            val count = when (filter) {
-                "Done" -> habitList.count { it.doneToday }
-                "Not done" -> habitList.count { !it.doneToday }
-                else -> habitList.size
+            val count = when (filter){
+                "Done" -> doneCount
+                "Not done" -> totalCount - doneCount
+                else -> totalCount
             }
 
             val backgroundColor by animateColorAsState(
@@ -597,11 +610,31 @@ fun InfoCard(
         }
     }
 }
+@Composable
+fun LoadingState(modifier: Modifier = Modifier) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
+    }
+}
+
+@Composable
+fun ErrorState(
+    message: String,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    EmptyState(
+        title = "Something went wrong",
+        subtitle = message,
+        buttonText = "Retry",
+        onButtonClick = onRetry,
+        modifier = modifier
+    )
+}
 
 
 // ---- Previews ----
 
-// ---- Previews ----
 
 @Preview(showBackground = true)
 @Composable

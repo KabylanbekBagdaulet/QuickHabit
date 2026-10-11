@@ -35,5 +35,37 @@ class HomeViewModel : ViewModel() {
         }
 
     }
+    fun onFilterSelected(filter: String) {
+        _uiState.update { it.copy(selectedFilter = filter, habits = applyFilter(filter)) }
+    }
+    fun onToggleHabit(id: Int, done: Boolean) {
+        allHabits = allHabits.map { if (it.id == id) it.copy(doneToday = done) else it }
+        refresh()
+        viewModelScope.launch { repository.setDone(id, done) }
+    }
+    fun onRetry() {
+        repository.shouldFail = false
+        loadHabits()
+    }
+    private fun applyFilter(filter: String): List<Habit> = when (filter) {
+        "Done" -> allHabits.filter { it.doneToday }
+        "Not done" -> allHabits.filter { !it.doneToday }
+        else -> allHabits
+    }
+    private fun refresh() {
+        _uiState.update {
+            it.copy(
+                habits = applyFilter(it.selectedFilter),
+                doneCount = allHabits.count { h -> h.doneToday },
+                totalCount = allHabits.size,
+                isLoading = false,
+                error = null
+            )
+        }
+    }
+    override fun onCleared() {
+        super.onCleared()
+        Log.d("HomeViewModel", "onCleared")
+    }
 
 }
