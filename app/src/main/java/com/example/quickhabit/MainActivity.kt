@@ -52,10 +52,14 @@ import com.example.quickhabit.ui.theme.QuickHabitTheme
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.quickhabit.ui.home.HomeViewModel
+import android.util.Log
 
 class MainActivity : ComponentActivity() {
+    private val tag = "MainActivity"
     override fun onCreate(savedInstanceState: Bundle?) {
+
         super.onCreate(savedInstanceState)
+        Log.d(tag, "onCreate")
         enableEdgeToEdge()
         setContent {
             var darkTheme by rememberSaveable { mutableStateOf(false) }
@@ -73,23 +77,37 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    override fun onStart() {
+        super.onStart()
+        Log.d(tag, "onStart")
+    }
+    override fun onResume() {
+        super.onResume()
+        Log.d(tag, "onResume")
+    }
+    override fun onPause() {
+        super.onPause()
+        Log.d(tag, "onPause")
+    }
+    override fun onStop() {
+        super.onStop()
+        Log.d(tag, "onStop")
+    }
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d(tag, "onDestroy")
+    }
 }
 // ---- Navigation ----
 @Composable
 fun QuickHabitApp(darkTheme: Boolean, onDarkThemeChange: (Boolean) -> Unit) {
     val navController = rememberNavController()
-    val habitList = remember { mutableStateListOf<Habit>().apply { addAll(habits) } }
-
-    fun toggle(id: Int, isDone: Boolean) {
-        val index = habitList.indexOfFirst { it.id == id }
-        if (index >= 0) habitList[index] = habitList[index].copy(doneToday = isDone)
-    }
+    val homeViewModel: HomeViewModel = viewModel()
 
     NavHost(navController = navController, startDestination = "home") {
-        composable("home") {
-            HomeScreen(
-                habitList = habitList,
-                onToggle = { id, isDone -> toggle(id, isDone) },
+        composable ("home"){
+            HomeRoute(
+                viewModel = homeViewModel,
                 onHabitClick = { id -> navController.navigate("detail/$id") },
                 onSettingsClick = { navController.navigate("settings") }
             )
@@ -99,11 +117,12 @@ fun QuickHabitApp(darkTheme: Boolean, onDarkThemeChange: (Boolean) -> Unit) {
             arguments = listOf(navArgument("habitId") { type = NavType.IntType })
         ) { backStackEntry ->
             val habitId = backStackEntry.arguments?.getInt("habitId")
-            val habit = habitList.find { it.id == habitId }
+            val uiState by homeViewModel.uiState.collectAsStateWithLifecycle()
+            val habit = uiState.allHabits.find { it.id == habitId }
             if (habit != null) {
                 HabitDetailScreen(
                     habit = habit,
-                    onToggleDone = { toggle(habit.id, it) },
+                    onToggleDone = { homeViewModel.onToggleHabit(habit.id, it) },
                     onBackClick = { navController.popBackStack() }
                 )
             } else {
@@ -127,6 +146,26 @@ fun QuickHabitApp(darkTheme: Boolean, onDarkThemeChange: (Boolean) -> Unit) {
 }
 
 // ---- Screens ----
+
+@Composable
+fun HomeRoute(
+    viewModel: HomeViewModel,
+    onHabitClick: (Int) -> Unit,
+    onSettingsClick: () -> Unit
+){
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    HomeScreen(
+        uiState = uiState,
+        onFilterSelected = viewModel::onFilterSelected,
+        onToggle = viewModel::onToggleHabit,
+        onHabitClick = onHabitClick,
+        onSettingsClick = onSettingsClick,
+        onRetry = viewModel::onRetry
+    )
+}
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -195,7 +234,7 @@ fun HomeScreen(
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            items(uiState.habits, key = { it.id })  {
+                            items(uiState.habits, key = { it.id })  { habit ->
                                 HabitCard(
                                     habit = habit,
                                     checked = habit.doneToday,
@@ -666,7 +705,14 @@ fun HabitCardDarkPreview() {
 @Composable
 fun FilterChipRowPreview() {
     QuickHabitTheme {
-        FilterChipRow(filters = filters, selected = "All", habitList = habits, onSelect = {})    }
+        FilterChipRow(
+            filters = filters,
+            selected = "All",
+            doneCount = 3,
+            totalCount = 10,
+            onSelect = {}
+        )
+    }
 }
 
 @Preview(showBackground = true)
@@ -682,35 +728,76 @@ fun EmptyStatePreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun HomeScreenPreview() {
+private fun HomePreviewHost(uiState: HomeUiState) {
     QuickHabitTheme {
         HomeScreen(
-            habitList = habits,
+            uiState = uiState,
+            onFilterSelected = {},
             onToggle = { _, _ -> },
             onHabitClick = {},
-            onSettingsClick = {}
+            onSettingsClick = {},
+            onRetry = {}
         )
     }
 }
 
-@Preview(
-    showBackground = true,
-    showSystemUi = true,
-    uiMode = Configuration.UI_MODE_NIGHT_YES
-)
+
+
+@Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun HomeScreenDarkPreview() {
-    QuickHabitTheme {
-        HomeScreen(
-            habitList = habits,
-            onToggle = { _, _ -> },
-            onHabitClick = {},
-            onSettingsClick = {}
+fun HomeContentPreview() {
+    HomePreviewHost(
+        HomeUiState(
+            habits = habits,
+            allHabits = habits,
+            doneCount = habits.count { it.doneToday },
+            totalCount = habits.size,
+            isLoading = false
         )
-    }
+    )
 }
+
+@Preview(showBackground = true, showSystemUi = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun HomeContentDarkPreview() {
+    HomePreviewHost(
+        HomeUiState(
+            habits = habits,
+            allHabits = habits,
+            doneCount = habits.count { it.doneToday },
+            totalCount = habits.size,
+            isLoading = false
+        )
+    )
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun HomeLoadingPreview() {
+    HomePreviewHost(HomeUiState(isLoading = true))
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun HomeEmptyPreview() {
+    HomePreviewHost(
+        HomeUiState(
+            habits = emptyList(),
+            selectedFilter = "Done",
+            totalCount = habits.size,
+            isLoading = false
+        )
+    )
+}
+
+// Состояние Error: есть текст ошибки
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun HomeErrorPreview() {
+    HomePreviewHost(HomeUiState(isLoading = false, error = "Could not load habits"))
+}
+
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable

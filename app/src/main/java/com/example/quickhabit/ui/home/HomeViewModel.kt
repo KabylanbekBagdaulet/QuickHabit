@@ -21,11 +21,12 @@ class HomeViewModel : ViewModel() {
         Log.d("HomeViewModel", "init")
         loadHabits()
     }
+
     private fun loadHabits() {
         _uiState.update {it.copy(isLoading = true, error = null)}
         viewModelScope.launch {
             try {
-                allHabits = repository.gethabits()
+                allHabits = repository.getHabits()
                 refresh()
             } catch (e: Exception) {
                 _uiState.update {
@@ -56,6 +57,7 @@ class HomeViewModel : ViewModel() {
         _uiState.update {
             it.copy(
                 habits = applyFilter(it.selectedFilter),
+                allHabits = allHabits,
                 doneCount = allHabits.count { h -> h.doneToday },
                 totalCount = allHabits.size,
                 isLoading = false,
