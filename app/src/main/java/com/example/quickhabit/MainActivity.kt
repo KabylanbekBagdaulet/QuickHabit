@@ -48,7 +48,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.ui.text.font.FontWeight
-
+import com.example.quickhabit.ui.home.HomeUiState
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

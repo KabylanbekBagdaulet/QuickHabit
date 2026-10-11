@@ -17,5 +17,5 @@ class HabitRepository{
         val index = items.indexOfFirst { it.id == id }
         if(index >= 0) items[index] = items[index].copy(doneToday = done)
     }
-    }
+
 }
