@@ -33,6 +33,21 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.Dp
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.ui.text.font.FontWeight
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -108,7 +123,6 @@ fun QuickHabitApp(darkTheme: Boolean, onDarkThemeChange: (Boolean) -> Unit) {
 }
 
 // ---- Screens ----
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -128,7 +142,20 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("QuickHabit") },
+
+                title = {
+                    Text(
+                        text = "QuickHabit", // или habit.name / "Settings"
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
                 actions = {
                     IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
@@ -141,6 +168,7 @@ fun HomeScreen(
             FilterChipRow(
                 filters = filters,
                 selected = selected,
+                habitList = habitList,
                 onSelect = { selected = it }
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -155,8 +183,8 @@ fun HomeScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(filtered, key = { it.id }) { habit ->
                         HabitCard(
@@ -203,37 +231,45 @@ fun HabitDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(24.dp)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_empty_habits),
-                contentDescription = "Habit icon",
-                modifier = Modifier.size(96.dp),
-                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
+            HabitAvatar(
+                name = habit.name,
+                size = 96.dp,
+                textStyle = MaterialTheme.typography.displaySmall
             )
             Spacer(modifier = Modifier.height(16.dp))
-            Text(text = habit.name, style = MaterialTheme.typography.headlineMedium)
-            Row {
-                Text(
-                    text = "Streak: ${habit.streak} days",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "•", style = MaterialTheme.typography.bodyMedium)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Reminder ${habit.reminderTime}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(text = habit.description, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = habit.name,
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            StreakPill(days = habit.streak)
             Spacer(modifier = Modifier.height(24.dp))
+            InfoCard(
+                icon = Icons.Default.Notifications,
+                label = "Reminder",
+                value = habit.reminderTime
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            InfoCard(
+                icon = Icons.Default.Info,
+                label = "About",
+                value = habit.description
+            )
+            Spacer(modifier = Modifier.weight(1f))
             Button(
                 onClick = { onToggleDone(!habit.doneToday) },
-                modifier = Modifier.heightIn(min = 48.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
             ) {
-                Text(if (habit.doneToday) "Done for today" else "Mark as done")
+                Text(
+                    text = if (habit.doneToday) "Done for today" else "Mark as done",
+                    style = MaterialTheme.typography.titleMedium
+                )
             }
         }
     }
@@ -267,19 +303,29 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(16.dp)
         ) {
-            SettingRow(
-                title = "Daily reminders",
-                checked = reminders,
-                onCheckedChange = { reminders = it }
-            )
-            SettingRow(
-                title = "Dark theme",
-                checked = darkTheme,
-                onCheckedChange = onDarkThemeChange
-            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                )
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    SettingRow(
+                        title = "Daily reminders",
+                        checked = reminders,
+                        onCheckedChange = { reminders = it }
+                    )
+                    HorizontalDivider()
+                    SettingRow(
+                        title = "Dark theme",
+                        checked = darkTheme,
+                        onCheckedChange = onDarkThemeChange
+                    )
+                }
+            }
         }
     }
 }
@@ -288,6 +334,7 @@ fun SettingsScreen(
 // ---- Components ----
 
 @Composable
+
 fun HabitCard(
     habit: Habit,
     checked: Boolean,
@@ -295,30 +342,77 @@ fun HabitCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val containerColor by animateColorAsState(
+        targetValue = if (checked) MaterialTheme.colorScheme.primaryContainer
+        else MaterialTheme.colorScheme.surfaceContainerHigh,
+        label = "cardColor"
+    )
+
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Checkbox(checked = checked, onCheckedChange = onCheckedChange)
-            Spacer(modifier = Modifier.width(8.dp))
+            HabitAvatar(name = habit.name)
+            Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = habit.name,
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    textDecoration = if (checked) TextDecoration.LineThrough
+                    else TextDecoration.None
                 )
-                Text(
-                    text = "Streak: ${habit.streak} days",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Spacer(modifier = Modifier.height(4.dp))
+                StreakPill(days = habit.streak)
             }
+            Checkbox(checked = checked, onCheckedChange = onCheckedChange)
         }
+    }
+}
+
+@Composable
+fun HabitAvatar(
+    name: String,
+    modifier: Modifier = Modifier,
+    size: Dp = 48.dp,
+    textStyle: TextStyle = MaterialTheme.typography.titleLarge
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primary),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = name.firstOrNull()?.uppercase() ?: "?",
+            style = textStyle,
+            color = MaterialTheme.colorScheme.onPrimary
+        )
+    }
+}
+
+@Composable
+fun StreakPill(days: Int, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(50),
+        color = MaterialTheme.colorScheme.secondaryContainer
+    ) {
+        Text(
+            text = "🔥 $days days",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+        )
     }
 }
 
@@ -326,6 +420,7 @@ fun HabitCard(
 fun FilterChipRow(
     filters: List<String>,
     selected: String,
+    habitList: List<Habit>,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -335,11 +430,64 @@ fun FilterChipRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(filters) { filter ->
-            FilterChip(
-                selected = filter == selected,
-                onClick = { onSelect(filter) },
-                label = { Text(filter) }
+            val isSelected = filter == selected
+            val count = when (filter) {
+                "Done" -> habitList.count { it.doneToday }
+                "Not done" -> habitList.count { !it.doneToday }
+                else -> habitList.size
+            }
+
+            val backgroundColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surface,
+                animationSpec = tween(durationMillis = 200),
+                label = "chipBg"
             )
+
+            val textColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+                animationSpec = tween(durationMillis = 200),
+                label = "chipText"
+            )
+
+            val borderColor = if (isSelected) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.outlineVariant
+
+            Surface(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(24.dp))
+                    .border(
+                        width = 1.dp,
+                        color = borderColor,
+                        shape = RoundedCornerShape(24.dp)
+                    )
+                    .clickable { onSelect(filter) },
+                color = backgroundColor,
+                shape = RoundedCornerShape(24.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (isSelected) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = textColor
+                        )
+                    }
+                    Text(
+                        text = "$filter ($count)",
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        ),
+                        color = textColor
+                    )
+                }
+            }
         }
     }
 }
@@ -359,12 +507,20 @@ fun EmptyState(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.ic_empty_habits),
-            contentDescription = "Empty list illustration",
-            modifier = Modifier.size(96.dp),
-            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
-        )
+        Box(
+            modifier = Modifier
+                .size(144.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_empty_habits),
+                contentDescription = "Empty list illustration",
+                modifier = Modifier.size(96.dp),
+                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
+            )
+        }
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = title,
@@ -408,6 +564,40 @@ fun SettingRow(
     }
 }
 
+@Composable
+fun InfoCard(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        )
+    ) {
+        Row(modifier = Modifier.padding(16.dp)) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(text = value, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+    }
+}
+
 
 // ---- Previews ----
 
@@ -443,8 +633,7 @@ fun HabitCardDarkPreview() {
 @Composable
 fun FilterChipRowPreview() {
     QuickHabitTheme {
-        FilterChipRow(filters = filters, selected = "All", onSelect = {})
-    }
+        FilterChipRow(filters = filters, selected = "All", habitList = habits, onSelect = {})    }
 }
 
 @Preview(showBackground = true)
