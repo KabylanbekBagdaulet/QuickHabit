@@ -333,7 +333,7 @@ fun SettingsScreen(
     onDarkThemeChange: (Boolean) -> Unit,
     onBackClick: () -> Unit
 ) {
-    var reminders by remember { mutableStateOf(true) }
+    var reminders by rememberSaveable { mutableStateOf(true) }
 
     Scaffold(
         topBar = {
