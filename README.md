@@ -81,7 +81,7 @@ Everything that is in `HomeViewModel` / `HomeUiState`: the selected filter, the 
 
 Logcat filter: `tag~:HomeViewModel|MainActivity`
 
-[log cat](screenshots/l_home.jpeg)
+[log cat](screenshots/log_cat.jpg)
 
 **Explanation:** TODO: write 3-4 sentences in your own words: why `MainActivity` went through `onPause` / `onStop` / `onDestroy` / `onCreate` again after rotation, but `HomeViewModel` shows no `onCleared` and no second `init`.
 
