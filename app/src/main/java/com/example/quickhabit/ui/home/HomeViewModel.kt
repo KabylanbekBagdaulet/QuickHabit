@@ -10,9 +10,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.example.quickhabit.domain.FilterHabitsUseCase
+import com.example.quickhabit.domain.GetHabitsUseCase
+import com.example.quickhabit.domain.ToggleHabitUseCase
 
 class HomeViewModel : ViewModel() {
     private val repository = HabitRepository()
+    private val getHabits = GetHabitsUseCase(repository)
+    private val toggleHabit = ToggleHabitUseCase(repository)
+    private val filterHabits = FilterHabitsUseCase()
     private var allHabits: List<Habit> = emptyList()
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -26,7 +32,7 @@ class HomeViewModel : ViewModel() {
         _uiState.update {it.copy(isLoading = true, error = null)}
         viewModelScope.launch {
             try {
-                allHabits = repository.getHabits()
+                allHabits = getHabits()
                 refresh()
             } catch (e: Exception) {
                 _uiState.update {
@@ -37,26 +43,22 @@ class HomeViewModel : ViewModel() {
 
     }
     fun onFilterSelected(filter: String) {
-        _uiState.update { it.copy(selectedFilter = filter, habits = applyFilter(filter)) }
+        _uiState.update { it.copy(selectedFilter = filter, habits = filterHabits(allHabits, filter)) }
     }
     fun onToggleHabit(id: Int, done: Boolean) {
         allHabits = allHabits.map { if (it.id == id) it.copy(doneToday = done) else it }
         refresh()
-        viewModelScope.launch { repository.setDone(id, done) }
+        viewModelScope.launch { toggleHabit(id, done) }
     }
     fun onRetry() {
         repository.shouldFail = false
         loadHabits()
     }
-    private fun applyFilter(filter: String): List<Habit> = when (filter) {
-        "Done" -> allHabits.filter { it.doneToday }
-        "Not done" -> allHabits.filter { !it.doneToday }
-        else -> allHabits
-    }
+
     private fun refresh() {
         _uiState.update {
             it.copy(
-                habits = applyFilter(it.selectedFilter),
+                habits = filterHabits(allHabits, it.selectedFilter),
                 allHabits = allHabits,
                 doneCount = allHabits.count { h -> h.doneToday },
                 totalCount = allHabits.size,

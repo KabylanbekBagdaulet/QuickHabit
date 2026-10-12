@@ -53,7 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.quickhabit.ui.home.HomeViewModel
 import android.util.Log
-
+import androidx.compose.ui.unit.sp
 class MainActivity : ComponentActivity() {
     private val tag = "MainActivity"
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -184,9 +184,10 @@ fun HomeScreen(
 
                 title = {
                     Text(
-                        text = "QuickHabit", // или habit.name / "Settings"
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold
+                        text = "QuickHabit",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.5).sp
                         )
                     )
                 },

@@ -1,5 +1,5 @@
 package com.example.quickhabit.data
-
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 
 class HabitRepository{
@@ -8,7 +8,7 @@ class HabitRepository{
     var shouldFail = false
 
     suspend fun getHabits(): List<Habit> {
-        delay(1500)
+        delay(1500.milliseconds)
         if(shouldFail) throw Exception("Could not load habits")
         return items.toList()
     }
