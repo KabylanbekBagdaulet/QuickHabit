@@ -83,8 +83,7 @@ Logcat filter: `tag~:HomeViewModel|MainActivity`
 
 [log cat](screenshots/log_cat.jpg)
 
-**Explanation:** TODO: write 3-4 sentences in your own words: why `MainActivity` went through `onPause` / `onStop` / `onDestroy` / `onCreate` again after rotation, but `HomeViewModel` shows no `onCleared` and no second `init`.
-
+**Explanation:** TODO: After the rotation, Android treats the new screen orientation as a configuration change: it destroys the old MainActivity (onPause, onStop, onDestroy) and builds a new one (onCreate, onStart, onResume), so everything that lived only inside the Activity and its composables is lost. HomeViewModel is not owned by the Activity instance but by its ViewModelStore, which Android keeps alive during a configuration change, so the new Activity receives the same ViewModel object. That is why Logcat shows no second init and no onCleared: nothing was created again and nothing was destroyed. onCleared is called only when the Activity is finished for good, for example when the user closes the app, and this is why the selected filter and the habits are still on the screen after the rotation.
 ## Screenshots
 | Screen | Light | Dark |
 |---|---|---|
