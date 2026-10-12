@@ -2,7 +2,7 @@
 
 A minimalist Android habit tracker built with Kotlin and Jetpack Compose. The app shows a list of daily habits, lets you filter them, mark them as done, open a detail screen with the streak, and switch between light and dark theme.
 
-This version is the **SIS3** submission (Jetpack Compose: layout and styling).
+This repository contains the **SIS3** app (Jetpack Compose: layout and styling), refactored in **SIS4** to MVVM (ViewModel, StateFlow, unidirectional data flow). See [Architecture (SIS4)](#architecture-sis4).
 
 ## What is implemented
 
@@ -30,13 +30,79 @@ The sketches are in the [`design/`](design/) folder. They were committed before 
 | Settings | `TopAppBar` with back button, two `Row`s with `Text` and `Switch` | Same. The Dark theme switch really changes the theme. |
 | Empty state | Separate screen with `TopAppBar`, centered `Column` with `Image`, two `Text` and a button ("No habits yet" / "Add your first one" / "Add") | Shown inside the Home screen under the chips when the filter has no habits ("No habits here" / "Try another filter" / "Show all"). The sketch version is kept as a `@Preview`. |
 
+## Architecture (SIS4)
+
+The app uses MVVM with unidirectional data flow: **events go up** to the ViewModel, **state comes down** to the screen.
+
+![MVVM architecture](design/mvvm.jpg)
+
+| Layer | Files | Responsibility |
+|---|---|---|
+| View (screens) | `MainActivity.kt`: `HomeRoute`, `HomeScreen`, `HabitCard`, `FilterChipRow`, `EmptyState`, `ErrorState`, `LoadingState` | Shows `HomeUiState` and passes user actions up. No business logic. |
+| ViewModel | `ui/home/HomeViewModel.kt` | Holds the state in `MutableStateFlow`, handles events, survives rotation. |
+| State | `ui/home/HomeUiState.kt` | `data class` with `val` properties only. |
+| Model / Repository | `data/HabitRepository.kt`, `data/Habit.kt` | Owns the habit list, waits with `delay(1500)`, can fail with `shouldFail = true`. |
+
+### UiState (`HomeUiState`)
+
+| Field | Meaning |
+|---|---|
+| `habits` | the list shown on screen (already filtered by the ViewModel) |
+| `allHabits` | the full list, used by the Detail screen to find a habit by id |
+| `selectedFilter` | `"All"`, `"Done"` or `"Not done"` |
+| `doneCount`, `totalCount` | numbers for the filter chips |
+| `isLoading` | true while the repository is loading |
+| `error` | error message or `null` |
+
+Four screen states: **loading** (`isLoading`), **error** (`error != null`), **empty** (`habits` is empty), **content**. Each one has a `@Preview` in `MainActivity.kt` (`HomeLoadingPreview`, `HomeContentPreview`, `HomeEmptyPreview`, `HomeErrorPreview`).
+
+### Events handled in `HomeViewModel`
+
+- `onFilterSelected(filter)`: changes `selectedFilter` and recalculates `habits`.
+- `onToggleHabit(id, done)`: marks a habit as done or not done.
+- `onRetry()`: loads the data again after an error.
+
+### Trace one click: ticking the checkbox of "Meditate" (id = 4)
+
+1. `HabitCard` (`MainActivity.kt`): the `Checkbox` calls `onCheckedChange(true)`, and `HomeScreen` turns it into `onToggle(habit.id, isChecked)`, which is `onToggle(4, true)`.
+2. `HomeRoute` passed `viewModel::onToggleHabit` as the `onToggle` lambda, so the call arrives in `HomeViewModel.onToggleHabit(4, true)`.
+3. `onToggleHabit` updates its list of habits (`allHabits.map { ... copy(doneToday = done) }`) and calls `refresh()`. Then it starts a coroutine in `viewModelScope` that calls `HabitRepository.setDone(4, true)`.
+4. `refresh()` calls `_uiState.update { it.copy(habits = applyFilter(...), allHabits = ..., doneCount = ..., totalCount = ..., isLoading = false, error = null) }`.
+5. The public `uiState: StateFlow<HomeUiState>` emits a new value. `HomeRoute` collects it with `collectAsStateWithLifecycle()`, and Compose recomposes `HomeScreen`.
+6. The screen shows "Meditate" as ticked (line-through, colored card) and the new `Done (n)` counter on the chip. `HomeScreen` itself did not change any data.
+
+Loading and error follow the same path: `loadHabits()` sets `isLoading = true`, and if `HabitRepository.getHabits()` throws, `error` is set and `ErrorState` shows a Retry button that calls `onRetry`.
+
+### What survives rotation
+
+Everything that is in `HomeViewModel` / `HomeUiState`: the selected filter, the done flags and the loaded list. The Dark theme switch uses `rememberSaveable`. Only the look of the UI (animations) stays in `remember`.
+
+### Proof: rotation and lifecycle logs
+
+Logcat filter: `tag~:HomeViewModel|MainActivity`
+
+[log cat](screenshots/l_home.jpeg)
+
+**Explanation:** TODO: write 3-4 sentences in your own words: why `MainActivity` went through `onPause` / `onStop` / `onDestroy` / `onCreate` again after rotation, but `HomeViewModel` shows no `onCleared` and no second `init`.
+
+## Screenshots
+| Screen | Light | Dark |
+|---|---|---|
+| Home | ![Home light](screenshots/l_home.jpeg) | ![Home dark](screenshots/b_home.jpeg) |
+| Habit Detail | ![Detail light](screenshots/l_det.jpeg) | ![Detail dark](screenshots/b_det.jpeg) |
+| Settings | ![Settings light](screenshots/l_set.jpeg) | ![Settings dark](screenshots/b_set.jpeg) |
+| Empty state | ![Empty light](screenshots/l_emp.jpeg) | ![Empty dark](screenshots/b_emp.jpeg) |
 ## Project structure
 
 ```text
 app/src/main/java/com/example/quickhabit/
-├── MainActivity.kt        # navigation, screens, reusable components, previews
+├── MainActivity.kt        # lifecycle logs, navigation, HomeRoute, stateless screens, components, previews
 ├── data/
-│   └── Habit.kt           # data class Habit, the habits list, filters
+│   ├── Habit.kt           # data class Habit, the habits list, filters
+│   └── HabitRepository.kt # owns the data, delay(), simulated error
+├── ui/home/
+│   ├── HomeUiState.kt     # UI state (data class, val only)
+│   └── HomeViewModel.kt   # StateFlow, events, filtering, counters
 └── ui/theme/
     ├── Color.kt           # all color values (light and dark)
     ├── Theme.kt           # QuickHabitTheme and color schemes
