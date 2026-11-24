@@ -44,16 +44,22 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.quickhabit.data.Habit
-import com.example.quickhabit.data.filters
-import com.example.quickhabit.data.habits
+import com.example.quickhabit.domain.model.Habit
+import com.example.quickhabit.domain.model.filters
+import com.example.quickhabit.domain.model.habits
 import com.example.quickhabit.ui.home.HomeUiState
 import com.example.quickhabit.ui.theme.QuickHabitTheme
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.quickhabit.ui.home.HomeViewModel
 import android.util.Log
 import androidx.compose.ui.unit.sp
+import org.koin.androidx.compose.koinViewModel
+import com.example.quickhabit.ui.timer.TimerViewModel
+import com.example.quickhabit.ui.timer.HabitTimerSection
+import com.example.quickhabit.domain.repository.AuthRepository
+import com.example.quickhabit.ui.auth.LoginRoute
+import org.koin.compose.koinInject
+
 class MainActivity : ComponentActivity() {
     private val tag = "MainActivity"
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,9 +108,19 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun QuickHabitApp(darkTheme: Boolean, onDarkThemeChange: (Boolean) -> Unit) {
     val navController = rememberNavController()
-    val homeViewModel: HomeViewModel = viewModel()
+    val authRepository: AuthRepository = koinInject()
+    val startDestination = remember { if (authRepository.currentUserId != null) "home" else "login" }
+    val homeViewModel: HomeViewModel = koinViewModel()
+    val timerViewModel: TimerViewModel = koinViewModel()
 
     NavHost(navController = navController, startDestination = "home") {
+        composable("login") {
+            LoginRoute(onLoggedIn = {
+                // Идём на главный и убираем экран входа из стека, чтобы кнопка Назад не вернула на него
+                navController.navigate("home") { popUpTo("login") { inclusive = true } }
+            })
+        }
+
         composable ("home"){
             HomeRoute(
                 viewModel = homeViewModel,
@@ -123,7 +139,8 @@ fun QuickHabitApp(darkTheme: Boolean, onDarkThemeChange: (Boolean) -> Unit) {
                 HabitDetailScreen(
                     habit = habit,
                     onToggleDone = { homeViewModel.onToggleHabit(habit.id, it) },
-                    onBackClick = { navController.popBackStack() }
+                    onBackClick = { navController.popBackStack() },
+                    timerViewModel = timerViewModel
                 )
             } else {
                 EmptyState(
@@ -139,7 +156,11 @@ fun QuickHabitApp(darkTheme: Boolean, onDarkThemeChange: (Boolean) -> Unit) {
             SettingsScreen(
                 darkTheme = darkTheme,
                 onDarkThemeChange = onDarkThemeChange,
-                onBackClick = { navController.popBackStack() }
+                onBackClick = { navController.popBackStack() },
+                onSignOut = {
+                    authRepository.signOut()
+                    navController.navigate("login") { popUpTo(navController.graph.id) { inclusive = true } }
+                }
             )
         }
     }
@@ -212,7 +233,7 @@ fun HomeScreen(
                     onRetry = onRetry,
                     modifier = Modifier.fillMaxSize()
                 )
-                else -> {
+                else -> {Spacer(modifier = Modifier.height(8.dp))
                     FilterChipRow(
                         filters = filters,
                         selected = uiState.selectedFilter,
@@ -256,7 +277,8 @@ fun HomeScreen(
 fun HabitDetailScreen(
     habit: Habit,
     onToggleDone: (Boolean) -> Unit,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    timerViewModel: TimerViewModel
 ) {
     Scaffold(
         topBar = {
@@ -312,6 +334,7 @@ fun HabitDetailScreen(
                 value = habit.description
             )
             Spacer(modifier = Modifier.weight(1f))
+            HabitTimerSection(habitName = habit.name, viewModel = timerViewModel)
             Button(
                 onClick = { onToggleDone(!habit.doneToday) },
                 modifier = Modifier
@@ -323,6 +346,7 @@ fun HabitDetailScreen(
                     style = MaterialTheme.typography.titleMedium
                 )
             }
+
         }
     }
 }
@@ -332,8 +356,8 @@ fun HabitDetailScreen(
 fun SettingsScreen(
     darkTheme: Boolean,
     onDarkThemeChange: (Boolean) -> Unit,
-    onBackClick: () -> Unit
-) {
+    onBackClick: () -> Unit,
+    onSignOut: () -> Unit) {
     var reminders by rememberSaveable { mutableStateOf(true) }
 
     Scaffold(
@@ -376,10 +400,12 @@ fun SettingsScreen(
                         checked = darkTheme,
                         onCheckedChange = onDarkThemeChange
                     )
+                    OutlinedButton(onClick = onSignOut) { Text("Sign out") }
                 }
             }
         }
     }
+
 }
 
 
@@ -800,45 +826,16 @@ fun HomeErrorPreview() {
 }
 
 
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun HabitDetailPreview() {
-    QuickHabitTheme {
-        HabitDetailScreen(habit = habits[0], onToggleDone = {}, onBackClick = {})
-    }
-}
+
 
 @Preview(
     showBackground = true,
     showSystemUi = true,
     uiMode = Configuration.UI_MODE_NIGHT_YES
 )
-@Composable
-fun HabitDetailDarkPreview() {
-    QuickHabitTheme {
-        HabitDetailScreen(habit = habits[0], onToggleDone = {}, onBackClick = {})
-    }
-}
 
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun SettingsPreview() {
-    QuickHabitTheme {
-        SettingsScreen(darkTheme = false, onDarkThemeChange = {}, onBackClick = {})
-    }
-}
 
-@Preview(
-    showBackground = true,
-    showSystemUi = true,
-    uiMode = Configuration.UI_MODE_NIGHT_YES
-)
-@Composable
-fun SettingsDarkPreview() {
-    QuickHabitTheme {
-        SettingsScreen(darkTheme = true, onDarkThemeChange = {}, onBackClick = {})
-    }
-}
+
 
 @Preview(showBackground = true)
 @Composable

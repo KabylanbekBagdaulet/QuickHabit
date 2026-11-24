@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "244103834950",
+    "project_id": "quickhabit",
+    "storage_bucket": "quickhabit.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:244103834950:android:2005f19ccf1eb7c7950947",
+        "android_client_info": {
+          "package_name": "com.example.quickhabit"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjUguORo7vqiVsZKFomaT1MDtcEw5rUzs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

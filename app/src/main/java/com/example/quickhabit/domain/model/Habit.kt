@@ -1,5 +1,6 @@
-package com.example.quickhabit.data
+package com.example.quickhabit.domain.model
 
+// Domain M
 data class Habit(
     val id: Int,
     val name: String,
